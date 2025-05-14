@@ -1,0 +1,81 @@
+version: '3.8'
+
+# このファイルは各AIツール環境内でプロジェクトを実行するためのテンプレートです
+# PORT_PREFIXは各ツール環境から環境変数として提供されます (Cursor=1, Copilot=2, Windsurf=3)
+
+services:
+  # Webフロントエンド
+  frontend:
+    image: node:18
+    container_name: ${PROJECT_NAME}-frontend
+    volumes:
+      - ./:/app
+    working_dir: /app/frontend
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "${PORT_PREFIX}3000:3000"  # プレフィックス付きポート (Cursor: 13000, Copilot: 23000, Windsurf: 33000)
+    environment:
+      - NODE_ENV=development
+      - API_URL=http://localhost:${PORT_PREFIX}4000
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  # APIバックエンド
+  backend:
+    image: node:18
+    container_name: ${PROJECT_NAME}-backend
+    volumes:
+      - ./:/app
+    working_dir: /app/backend
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "${PORT_PREFIX}4000:4000"  # プレフィックス付きポート
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=${PROJECT_NAME}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+      - redis
+    networks:
+      - app-network
+
+  # データベース
+  db:
+    image: postgres:14
+    container_name: ${PROJECT_NAME}-db
+    volumes:
+      - ${PROJECT_NAME}-db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=${PROJECT_NAME}
+    ports:
+      - "${PORT_PREFIX}5432:5432"  # プレフィックス付きポート
+    networks:
+      - app-network
+
+  # Redis (キャッシュなど)
+  redis:
+    image: redis:7
+    container_name: ${PROJECT_NAME}-redis
+    ports:
+      - "${PORT_PREFIX}6379:6379"  # プレフィックス付きポート
+    networks:
+      - app-network
+
+  # その他必要なサービス (例: Elasticsearch, RabbitMQ など)
+  # ...
+
+networks:
+  app-network:
+    name: ${PROJECT_NAME}-network
+
+volumes:
+  ${PROJECT_NAME}-db-data:

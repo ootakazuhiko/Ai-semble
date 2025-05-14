@@ -1,0 +1,100 @@
+version: '3.8'
+
+# AIツール用のベース環境
+services:
+  cursor-environment:
+    image: cursor-dev:latest
+    container_name: cursor-dev
+    privileged: true  # Dockerインドッキングに必要
+    volumes:
+      - ./cursor-workspace:/workspace
+      - ~/.ssh:/root/.ssh:ro
+      - ~/.gitconfig:/root/.gitconfig:ro
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker-in-Docker用
+      - ./docker-configs/cursor:/docker-configs
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - AI_API_KEY=${CURSOR_API_KEY}
+      - PORT_PREFIX=1  # ポート衝突回避用のプレフィックス
+    ports:
+      - "9001:9000"  # AIツールUI用ポート
+      - "10000-10999:10000-10999"  # Cursor環境内のWebアプリ用ポート範囲
+    networks:
+      - cursor-network
+      - shared-network
+    restart: unless-stopped
+
+  copilot-environment:
+    image: vscode-copilot:latest
+    container_name: copilot-dev
+    privileged: true
+    volumes:
+      - ./copilot-workspace:/workspace
+      - ~/.ssh:/root/.ssh:ro
+      - ~/.gitconfig:/root/.gitconfig:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-configs/copilot:/docker-configs
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - COPILOT_TOKEN=${COPILOT_TOKEN}
+      - PORT_PREFIX=2  # 各ツールで異なるプレフィックス
+    ports:
+      - "9002:9000"
+      - "20000-20999:20000-20999"  # Copilot環境内のWebアプリ用ポート範囲
+    networks:
+      - copilot-network
+      - shared-network
+    restart: unless-stopped
+
+  windsurf-environment:
+    image: windsurf-dev:latest
+    container_name: windsurf-dev
+    privileged: true
+    volumes:
+      - ./windsurf-workspace:/workspace
+      - ~/.ssh:/root/.ssh:ro
+      - ~/.gitconfig:/root/.gitconfig:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-configs/windsurf:/docker-configs
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - WINDSURF_API_KEY=${WINDSURF_API_KEY}
+      - PORT_PREFIX=3
+    ports:
+      - "9003:9000"
+      - "30000-30999:30000-30999"  # Windsurf環境内のWebアプリ用ポート範囲
+    networks:
+      - windsurf-network
+      - shared-network
+    restart: unless-stopped
+
+# 共有リソース（オプション）
+  shared-database:
+    image: postgres:latest
+    container_name: shared-db
+    environment:
+      - POSTGRES_PASSWORD=shared_password
+      - POSTGRES_USER=shared_user
+      - POSTGRES_DB=shared_db
+    volumes:
+      - shared-db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - shared-network
+    restart: unless-stopped
+
+# ネットワーク定義
+networks:
+  cursor-network:
+    name: cursor-network
+  copilot-network:
+    name: copilot-network
+  windsurf-network:
+    name: windsurf-network
+  shared-network:
+    name: ai-tools-shared-network
+
+# 共有ボリューム
+volumes:
+  shared-db-data:

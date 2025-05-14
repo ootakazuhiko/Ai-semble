@@ -1,0 +1,83 @@
+{
+  "projects": [
+    {
+      "name": "project-alpha",
+      "repo": "https://github.com/username/project-alpha.git",
+      "assignments": {
+        "cursor": ["frontend/", "api/"],
+        "copilot": ["backend/", "database/"],
+        "windsurf": ["docs/", "tests/"]
+      },
+      "auto_sync": {
+        "frequency": "hourly",
+        "conflict_strategy": "tool-priority",
+        "priority_order": ["cursor", "copilot", "windsurf"]
+      }
+    },
+    {
+      "name": "project-beta",
+      "repo": "https://github.com/username/project-beta.git",
+      "assignments": {
+        "cursor": ["src/feature-a/"],
+        "copilot": ["src/feature-b/"],
+        "windsurf": ["src/feature-c/"]
+      },
+      "auto_sync": {
+        "frequency": "on-commit",
+        "conflict_strategy": "path-based",
+        "auto_resolve_simple_conflicts": true
+      }
+    }
+  ],
+  "tools": {
+    "cursor": {
+      "workspace": "./cursor-workspace",
+      "container": "cursor-dev",
+      "env_vars": {
+        "AI_MODEL": "gpt-4-turbo",
+        "CURSOR_SETTINGS": "/etc/cursor/settings.json"
+      },
+      "file_patterns": ["*.js", "*.ts", "*.jsx", "*.tsx", "*.html", "*.css"]
+    },
+    "copilot": {
+      "workspace": "./copilot-workspace",
+      "container": "copilot-dev",
+      "env_vars": {
+        "COPILOT_ENGINE": "default",
+        "INLINE_SUGGESTIONS": "true"
+      },
+      "file_patterns": ["*.py", "*.java", "*.go"]
+    },
+    "windsurf": {
+      "workspace": "./windsurf-workspace",
+      "container": "windsurf-dev",
+      "env_vars": {
+        "WINDSURF_CONFIG": "/etc/windsurf/config.yml"
+      },
+      "file_patterns": ["*.md", "*.yml", "*.yaml", "*test*"]
+    }
+  },
+  "global_settings": {
+    "auto_refresh_repos": true,
+    "log_level": "info",
+    "notification_webhook": "https://hooks.slack.com/services/TXXXXXXXX/BXXXXXXXX/XXXXXXXX",
+    "git_authentication": {
+      "use_ssh_agent": true,
+      "github_token_variable": "GITHUB_TOKEN"
+    },
+    "container_resources": {
+      "cursor": {
+        "cpus": "2",
+        "memory": "4g"
+      },
+      "copilot": {
+        "cpus": "2",
+        "memory": "4g"
+      },
+      "windsurf": {
+        "cpus": "2",
+        "memory": "4g"
+      }
+    }
+  }
+}

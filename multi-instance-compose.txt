@@ -1,0 +1,195 @@
+version: '3.8'
+
+# AIツールマルチインスタンス用のDocker Compose設定
+services:
+  # Cursorの複数インスタンス
+  cursor-dev-1:
+    image: cursor-dev:latest
+    container_name: cursor-dev-1
+    privileged: true  # Docker-in-Docker用
+    volumes:
+      - ./cursor_1_workspace:/workspace
+      - ~/.ssh:/root/.ssh:ro
+      - ~/.gitconfig:/root/.gitconfig:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-configs/cursor_1:/docker-configs
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - AI_API_KEY=${CURSOR_API_KEY}
+      - PORT_PREFIX=11
+      - INSTANCE_ID=1
+    ports:
+      - "9101:9000"  # ツールUI用ポート
+      - "11000-11999:11000-11999"  # アプリケーションポート範囲
+    networks:
+      - cursor-1-network
+      - shared-network
+    restart: unless-stopped
+
+  cursor-dev-2:
+    image: cursor-dev:latest
+    container_name: cursor-dev-2
+    privileged: true
+    volumes:
+      - ./cursor_2_workspace:/workspace
+      - ~/.ssh:/root/.ssh:ro
+      - ~/.gitconfig:/root/.gitconfig:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-configs/cursor_2:/docker-configs
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - AI_API_KEY=${CURSOR_API_KEY}
+      - PORT_PREFIX=12
+      - INSTANCE_ID=2
+    ports:
+      - "9102:9000"
+      - "12000-12999:12000-12999"
+    networks:
+      - cursor-2-network
+      - shared-network
+    restart: unless-stopped
+
+  cursor-dev-3:
+    image: cursor-dev:latest
+    container_name: cursor-dev-3
+    privileged: true
+    volumes:
+      - ./cursor_3_workspace:/workspace
+      - ~/.ssh:/root/.ssh:ro
+      - ~/.gitconfig:/root/.gitconfig:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-configs/cursor_3:/docker-configs
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - AI_API_KEY=${CURSOR_API_KEY}
+      - PORT_PREFIX=13
+      - INSTANCE_ID=3
+    ports:
+      - "9103:9000"
+      - "13000-13999:13000-13999"
+    networks:
+      - cursor-3-network
+      - shared-network
+    restart: unless-stopped
+
+  # Copilot
+  copilot-dev:
+    image: vscode-copilot:latest
+    container_name: copilot-dev
+    privileged: true
+    volumes:
+      - ./copilot_workspace:/workspace
+      - ~/.ssh:/root/.ssh:ro
+      - ~/.gitconfig:/root/.gitconfig:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-configs/copilot:/docker-configs
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - COPILOT_TOKEN=${COPILOT_TOKEN}
+      - PORT_PREFIX=21
+      - INSTANCE_ID=1
+    ports:
+      - "9201:9000"
+      - "21000-21999:21000-21999"
+    networks:
+      - copilot-network
+      - shared-network
+    restart: unless-stopped
+
+  # Windsurfの複数インスタンス
+  windsurf-dev-1:
+    image: windsurf-dev:latest
+    container_name: windsurf-dev-1
+    privileged: true
+    volumes:
+      - ./windsurf_1_workspace:/workspace
+      - ~/.ssh:/root/.ssh:ro
+      - ~/.gitconfig:/root/.gitconfig:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-configs/windsurf_1:/docker-configs
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - WINDSURF_API_KEY=${WINDSURF_API_KEY}
+      - PORT_PREFIX=31
+      - INSTANCE_ID=1
+    ports:
+      - "9301:9000"
+      - "31000-31999:31000-31999"
+    networks:
+      - windsurf-1-network
+      - shared-network
+    restart: unless-stopped
+
+  windsurf-dev-2:
+    image: windsurf-dev:latest
+    container_name: windsurf-dev-2
+    privileged: true
+    volumes:
+      - ./windsurf_2_workspace:/workspace
+      - ~/.ssh:/root/.ssh:ro
+      - ~/.gitconfig:/root/.gitconfig:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-configs/windsurf_2:/docker-configs
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - WINDSURF_API_KEY=${WINDSURF_API_KEY}
+      - PORT_PREFIX=32
+      - INSTANCE_ID=2
+    ports:
+      - "9302:9000"
+      - "32000-32999:32000-32999"
+    networks:
+      - windsurf-2-network
+      - shared-network
+    restart: unless-stopped
+
+  # 共有リソース
+  instance-registry:
+    image: redis:7
+    container_name: instance-registry
+    volumes:
+      - instance-registry-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - shared-network
+    restart: unless-stopped
+
+  # インスタンス管理API
+  instance-manager:
+    image: instance-manager:latest
+    container_name: instance-manager
+    volumes:
+      - ./instance-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8080:8080"
+    depends_on:
+      - instance-registry
+    networks:
+      - shared-network
+    environment:
+      - REGISTRY_HOST=instance-registry
+      - CONFIG_PATH=/data/multi_instance_config.json
+    restart: unless-stopped
+
+# ネットワーク定義
+networks:
+  cursor-1-network:
+    name: cursor-1-network
+  cursor-2-network:
+    name: cursor-2-network
+  cursor-3-network:
+    name: cursor-3-network
+  copilot-network:
+    name: copilot-network
+  windsurf-1-network:
+    name: windsurf-1-network
+  windsurf-2-network:
+    name: windsurf-2-network
+  shared-network:
+    name: ai-tools-shared-network
+
+# 共有ボリューム
+volumes:
+  instance-registry-data:

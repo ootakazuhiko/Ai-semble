@@ -1,0 +1,168 @@
+{
+  "projects": [
+    {
+      "name": "web-project-alpha",
+      "repo": "https://github.com/username/web-project-alpha.git",
+      "assignments": {
+        "cursor": ["frontend/", "api/"],
+        "copilot": ["backend/", "database/"],
+        "windsurf": ["docs/", "tests/"]
+      },
+      "docker_config": {
+        "services": [
+          {
+            "name": "frontend",
+            "base_port": 3000,
+            "auto_start": true
+          },
+          {
+            "name": "backend",
+            "base_port": 4000,
+            "auto_start": true
+          },
+          {
+            "name": "database", 
+            "base_port": 5432,
+            "auto_start": true,
+            "volume_persist": true
+          },
+          {
+            "name": "cache",
+            "base_port": 6379,
+            "auto_start": true
+          }
+        ],
+        "environment_vars": {
+          "NODE_ENV": "development",
+          "API_URL": "http://localhost:${PORT_PREFIX}4000",
+          "DEBUG": "true" 
+        }
+      }
+    },
+    {
+      "name": "microservice-project",
+      "repo": "https://github.com/username/microservice-project.git",
+      "assignments": {
+        "cursor": ["service-a/", "gateway/"],
+        "copilot": ["service-b/", "service-c/"],
+        "windsurf": ["monitoring/", "deployment/"]
+      },
+      "docker_config": {
+        "services": [
+          {
+            "name": "service-a",
+            "base_port": 7000,
+            "auto_start": true
+          },
+          {
+            "name": "service-b",
+            "base_port": 7001,
+            "auto_start": true
+          },
+          {
+            "name": "service-c",
+            "base_port": 7002,
+            "auto_start": true
+          },
+          {
+            "name": "gateway",
+            "base_port": 8000,
+            "auto_start": true
+          },
+          {
+            "name": "monitoring",
+            "base_port": 9090,
+            "auto_start": false
+          }
+        ],
+        "environment_vars": {
+          "SERVICE_REGISTRY": "http://gateway:8000",
+          "LOG_LEVEL": "debug"
+        },
+        "shared_volumes": ["microservice-data"]
+      }
+    }
+  ],
+  "tools": {
+    "cursor": {
+      "workspace": "./cursor-workspace",
+      "container": "cursor-dev",
+      "env_vars": {
+        "AI_MODEL": "gpt-4-turbo",
+        "CURSOR_SETTINGS": "/etc/cursor/settings.json",
+        "PORT_PREFIX": "1"
+      },
+      "file_patterns": ["*.js", "*.ts", "*.jsx", "*.tsx", "*.html", "*.css"],
+      "docker_config": {
+        "cpu_limit": "4",
+        "memory_limit": "8g",
+        "port_range_start": 10000,
+        "port_range_end": 19999,
+        "network_name": "cursor-network"
+      }
+    },
+    "copilot": {
+      "workspace": "./copilot-workspace",
+      "container": "copilot-dev",
+      "env_vars": {
+        "COPILOT_ENGINE": "default",
+        "INLINE_SUGGESTIONS": "true",
+        "PORT_PREFIX": "2"
+      },
+      "file_patterns": ["*.py", "*.java", "*.go"],
+      "docker_config": {
+        "cpu_limit": "4",
+        "memory_limit": "8g",
+        "port_range_start": 20000,
+        "port_range_end": 29999,
+        "network_name": "copilot-network"
+      }
+    },
+    "windsurf": {
+      "workspace": "./windsurf-workspace",
+      "container": "windsurf-dev",
+      "env_vars": {
+        "WINDSURF_CONFIG": "/etc/windsurf/config.yml",
+        "PORT_PREFIX": "3"
+      },
+      "file_patterns": ["*.md", "*.yml", "*.yaml", "*test*"],
+      "docker_config": {
+        "cpu_limit": "4",
+        "memory_limit": "8g",
+        "port_range_start": 30000,
+        "port_range_end": 39999,
+        "network_name": "windsurf-network"
+      }
+    }
+  },
+  "global_settings": {
+    "auto_refresh_repos": true,
+    "log_level": "info",
+    "notification_webhook": "https://hooks.slack.com/services/TXXXXXXXX/BXXXXXXXX/XXXXXXXX",
+    "git_authentication": {
+      "use_ssh_agent": true,
+      "github_token_variable": "GITHUB_TOKEN"
+    },
+    "docker_settings": {
+      "shared_network_name": "ai-tools-shared-network",
+      "shared_resources": {
+        "enable": true,
+        "shared_database": {
+          "port": 5432,
+          "host": "shared-db",
+          "credentials": {
+            "user": "shared_user",
+            "password_env": "SHARED_DB_PASSWORD"
+          }
+        }
+      },
+      "port_conflict_strategy": "prefix",
+      "auto_restart_on_failure": true,
+      "resource_monitoring": {
+        "enable": true,
+        "alert_threshold_cpu": 90,
+        "alert_threshold_memory": 85
+      }
+    }
+  }
+}

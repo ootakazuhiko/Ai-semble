@@ -1,0 +1,203 @@
+{
+  "instance_management": {
+    "auto_discovery": true,
+    "registry_file": "ai_tools_instances.json",
+    "instance_naming_pattern": "{tool_name}_{instance_id}"
+  },
+  "tool_instances": [
+    {
+      "tool_type": "cursor",
+      "instance_id": "1",
+      "name": "cursor_1",
+      "workspace": "./cursor_1_workspace",
+      "container": "cursor-dev-1",
+      "port_prefix": "11",
+      "project_assignments": ["project-alpha-frontend"],
+      "env_vars": {
+        "AI_MODEL": "gpt-4-turbo",
+        "CURSOR_SETTINGS": "/etc/cursor/settings-1.json"
+      }
+    },
+    {
+      "tool_type": "cursor",
+      "instance_id": "2",
+      "name": "cursor_2",
+      "workspace": "./cursor_2_workspace",
+      "container": "cursor-dev-2",
+      "port_prefix": "12",
+      "project_assignments": ["project-alpha-backend"],
+      "env_vars": {
+        "AI_MODEL": "gpt-4-turbo",
+        "CURSOR_SETTINGS": "/etc/cursor/settings-2.json"
+      }
+    },
+    {
+      "tool_type": "cursor",
+      "instance_id": "3",
+      "name": "cursor_3",
+      "workspace": "./cursor_3_workspace",
+      "container": "cursor-dev-3",
+      "port_prefix": "13",
+      "project_assignments": ["project-beta"],
+      "env_vars": {
+        "AI_MODEL": "gpt-3.5-turbo",
+        "CURSOR_SETTINGS": "/etc/cursor/settings-3.json"
+      }
+    },
+    {
+      "tool_type": "copilot",
+      "instance_id": "1",
+      "name": "copilot_1",
+      "workspace": "./copilot_workspace",
+      "container": "copilot-dev",
+      "port_prefix": "21",
+      "project_assignments": ["shared-library"],
+      "env_vars": {
+        "COPILOT_ENGINE": "default",
+        "INLINE_SUGGESTIONS": "true"
+      }
+    },
+    {
+      "tool_type": "windsurf",
+      "instance_id": "1",
+      "name": "windsurf_1",
+      "workspace": "./windsurf_1_workspace",
+      "container": "windsurf-dev-1",
+      "port_prefix": "31",
+      "project_assignments": ["documentation"],
+      "env_vars": {
+        "WINDSURF_CONFIG": "/etc/windsurf/config-1.yml"
+      }
+    },
+    {
+      "tool_type": "windsurf",
+      "instance_id": "2",
+      "name": "windsurf_2",
+      "workspace": "./windsurf_2_workspace",
+      "container": "windsurf-dev-2",
+      "port_prefix": "32",
+      "project_assignments": ["testing"],
+      "env_vars": {
+        "WINDSURF_CONFIG": "/etc/windsurf/config-2.yml"
+      }
+    }
+  ],
+  "projects": [
+    {
+      "name": "project-alpha-frontend",
+      "repo": "https://github.com/username/project-alpha.git",
+      "branch": "frontend",
+      "docker_config": {
+        "services": [
+          {
+            "name": "frontend",
+            "base_port": 3000,
+            "auto_start": true
+          },
+          {
+            "name": "mock-api",
+            "base_port": 4000,
+            "auto_start": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "project-alpha-backend",
+      "repo": "https://github.com/username/project-alpha.git",
+      "branch": "backend",
+      "docker_config": {
+        "services": [
+          {
+            "name": "backend",
+            "base_port": 4000,
+            "auto_start": true
+          },
+          {
+            "name": "database",
+            "base_port": 5432,
+            "auto_start": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "project-beta",
+      "repo": "https://github.com/username/project-beta.git",
+      "branch": "main",
+      "docker_config": {
+        "services": [
+          {
+            "name": "full-stack",
+            "base_port": 8000,
+            "auto_start": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "shared-library",
+      "repo": "https://github.com/username/shared-library.git",
+      "branch": "main"
+    },
+    {
+      "name": "documentation",
+      "repo": "https://github.com/username/project-docs.git",
+      "branch": "main"
+    },
+    {
+      "name": "testing",
+      "repo": "https://github.com/username/project-testing.git",
+      "branch": "main"
+    }
+  ],
+  "global_settings": {
+    "auto_refresh_repos": true,
+    "log_level": "info",
+    "instance_discovery": {
+      "enable": true,
+      "scan_interval_seconds": 60,
+      "tool_process_patterns": {
+        "cursor": "cursor.exe|cursor",
+        "copilot": "copilot.exe|github-copilot",
+        "windsurf": "windsurf.exe|windsurf"
+      }
+    },
+    "resource_management": {
+      "max_instances_per_tool": {
+        "cursor": 5,
+        "copilot": 2,
+        "windsurf": 3
+      },
+      "instance_resource_limits": {
+        "cursor": {
+          "cpus": "2",
+          "memory": "4g"
+        },
+        "copilot": {
+          "cpus": "2",
+          "memory": "3g"
+        },
+        "windsurf": {
+          "cpus": "1",
+          "memory": "2g"
+        }
+      }
+    },
+    "port_management": {
+      "port_prefix_digits": 2,
+      "prefix_allocation": {
+        "cursor": "1",
+        "copilot": "2",
+        "windsurf": "3"
+      },
+      "base_ports": {
+        "frontend": 3000,
+        "backend": 4000,
+        "database": 5432,
+        "cache": 6379,
+        "misc": 8000
+      }
+    }
+  }
+}

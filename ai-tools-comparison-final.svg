@@ -1,0 +1,135 @@
+<svg viewBox="0 0 1000 800" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景 -->
+  <rect x="0" y="0" width="1000" height="800" fill="#f8f9fa"/>
+  
+  <!-- タイトル -->
+  <text x="500" y="40" font-family="Arial" font-size="24" text-anchor="middle" font-weight="bold">AIツール開発環境アーキテクチャ比較</text>
+  
+  <!-- 3つのセクション -->
+  <rect x="20" y="70" width="310" height="700" rx="10" ry="10" fill="#f1f8e9" stroke="#558b2f" stroke-width="2"/>
+  <text x="170" y="100" font-family="Arial" font-size="20" text-anchor="middle" font-weight="bold">通常のAIツール利用</text>
+  
+  <rect x="345" y="70" width="310" height="700" rx="10" ry="10" fill="#e8eaf6" stroke="#3949ab" stroke-width="2"/>
+  <text x="500" y="100" font-family="Arial" font-size="20" text-anchor="middle" font-weight="bold">統合開発環境型</text>
+  
+  <rect x="670" y="70" width="310" height="700" rx="10" ry="10" fill="#fff3e0" stroke="#ef6c00" stroke-width="2"/>
+  <text x="825" y="100" font-family="Arial" font-size="20" text-anchor="middle" font-weight="bold">提案アーキテクチャ</text>
+  
+  <!-- 通常のAIツール利用 -->
+  <rect x="40" y="130" width="270" height="160" rx="10" ry="10" fill="#c5e1a5" stroke="#558b2f" stroke-width="2"/>
+  <text x="175" y="150" font-family="Arial" font-size="16" text-anchor="middle" font-weight="bold">ホストPC上の動作</text>
+  
+  <rect x="60" y="170" width="230" height="30" rx="5" ry="5" fill="#dcedc8" stroke="#558b2f" stroke-width="2"/>
+  <text x="175" y="190" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">GitHub Copilot（拡張機能）</text>
+  
+  <rect x="60" y="210" width="230" height="30" rx="5" ry="5" fill="#dcedc8" stroke="#558b2f" stroke-width="2"/>
+  <text x="175" y="230" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">Cursor（独自エディタ）</text>
+  
+  <rect x="60" y="250" width="230" height="30" rx="5" ry="5" fill="#dcedc8" stroke="#558b2f" stroke-width="2"/>
+  <text x="175" y="270" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">Windsurf（独自環境）</text>
+  
+  <rect x="40" y="310" width="270" height="400" rx="10" ry="10" fill="#c5e1a5" stroke="#558b2f" stroke-width="2"/>
+  <text x="175" y="330" font-family="Arial" font-size="16" text-anchor="middle" font-weight="bold">Workspace環境</text>
+  
+  <rect x="60" y="350" width="230" height="80" rx="5" ry="5" fill="#dcedc8" stroke="#558b2f" stroke-width="2"/>
+  <text x="175" y="370" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">ローカルフォルダ</text>
+  <text x="175" y="390" font-family="Arial" font-size="12" text-anchor="middle">標準的なファイル構造</text>
+  <text x="175" y="410" font-family="Arial" font-size="12" text-anchor="middle">エディタ開放ディレクトリ</text>
+  
+  <rect x="60" y="450" width="230" height="80" rx="5" ry="5" fill="#dcedc8" stroke="#558b2f" stroke-width="2"/>
+  <text x="175" y="470" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">実行環境</text>
+  <text x="175" y="490" font-family="Arial" font-size="12" text-anchor="middle">ホストOS上のプロセス</text>
+  <text x="175" y="510" font-family="Arial" font-size="12" text-anchor="middle">ローカル開発ツール</text>
+  
+  <rect x="60" y="550" width="230" height="80" rx="5" ry="5" fill="#dcedc8" stroke="#558b2f" stroke-width="2"/>
+  <text x="175" y="570" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">マルチプロジェクト</text>
+  <text x="175" y="590" font-family="Arial" font-size="12" text-anchor="middle">異なるウィンドウ/タブで開く</text>
+  <text x="175" y="610" font-family="Arial" font-size="12" text-anchor="middle">コンテキスト切り替えが必要</text>
+  
+  <line x1="175" y1="290" x2="175" y2="350" stroke="#558b2f" stroke-width="2" stroke-dasharray="5,5"/>
+  <text x="155" y="320" font-family="Arial" font-size="12" text-anchor="middle" font-style="italic">参照</text>
+
+  <!-- 統合開発環境型 -->
+  <rect x="365" y="130" width="270" height="160" rx="10" ry="10" fill="#c5cae9" stroke="#3949ab" stroke-width="2"/>
+  <text x="500" y="150" font-family="Arial" font-size="16" text-anchor="middle" font-weight="bold">統合AIプラットフォーム</text>
+  
+  <rect x="385" y="170" width="230" height="50" rx="5" ry="5" fill="#e8eaf6" stroke="#3949ab" stroke-width="2"/>
+  <text x="500" y="190" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">Devin</text>
+  <text x="500" y="210" font-family="Arial" font-size="12" text-anchor="middle">自律型AI開発エージェント</text>
+  
+  <rect x="385" y="230" width="230" height="50" rx="5" ry="5" fill="#e8eaf6" stroke="#3949ab" stroke-width="2"/>
+  <text x="500" y="250" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">GitHub Copilot + Codespace</text>
+  <text x="500" y="270" font-family="Arial" font-size="12" text-anchor="middle">クラウド開発環境との統合</text>
+  
+  <rect x="365" y="310" width="270" height="400" rx="10" ry="10" fill="#c5cae9" stroke="#3949ab" stroke-width="2"/>
+  <text x="500" y="330" font-family="Arial" font-size="16" text-anchor="middle" font-weight="bold">Workspace環境</text>
+  
+  <rect x="385" y="350" width="230" height="80" rx="5" ry="5" fill="#e8eaf6" stroke="#3949ab" stroke-width="2"/>
+  <text x="500" y="370" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">開発コンテナ環境</text>
+  <text x="500" y="390" font-family="Arial" font-size="12" text-anchor="middle">事前構成済み環境</text>
+  <text x="500" y="410" font-family="Arial" font-size="12" text-anchor="middle">自動セットアップ</text>
+  
+  <rect x="385" y="450" width="230" height="80" rx="5" ry="5" fill="#e8eaf6" stroke="#3949ab" stroke-width="2"/>
+  <text x="500" y="470" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">AI統合実行</text>
+  <text x="500" y="490" font-family="Arial" font-size="12" text-anchor="middle">自動化されたワークフロー</text>
+  <text x="500" y="510" font-family="Arial" font-size="12" text-anchor="middle">クラウドリソース/コンテナ</text>
+  
+  <rect x="385" y="550" width="230" height="80" rx="5" ry="5" fill="#e8eaf6" stroke="#3949ab" stroke-width="2"/>
+  <text x="500" y="570" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">プロジェクト管理</text>
+  <text x="500" y="590" font-family="Arial" font-size="12" text-anchor="middle">リポジトリとの緊密な統合</text>
+  <text x="500" y="610" font-family="Arial" font-size="12" text-anchor="middle">コンテキスト認識</text>
+  
+  <line x1="500" y1="290" x2="500" y2="350" stroke="#3949ab" stroke-width="2"/>
+  <text x="520" y="320" font-family="Arial" font-size="12" text-anchor="middle" font-style="italic">提供</text>
+
+  <!-- 提案アーキテクチャ -->
+  <rect x="690" y="130" width="270" height="160" rx="10" ry="10" fill="#ffe0b2" stroke="#ef6c00" stroke-width="2"/>
+  <text x="825" y="150" font-family="Arial" font-size="16" text-anchor="middle" font-weight="bold">ホストPC上のAIマルチインスタンス</text>
+  
+  <rect x="710" y="170" width="70" height="40" rx="5" ry="5" fill="#fff3e0" stroke="#ef6c00" stroke-width="2"/>
+  <text x="745" y="195" font-family="Arial" font-size="12" text-anchor="middle">Cursor #1</text>
+  
+  <rect x="790" y="170" width="70" height="40" rx="5" ry="5" fill="#fff3e0" stroke="#ef6c00" stroke-width="2"/>
+  <text x="825" y="195" font-family="Arial" font-size="12" text-anchor="middle">Cursor #2</text>
+  
+  <rect x="710" y="220" width="70" height="40" rx="5" ry="5" fill="#fff3e0" stroke="#ef6c00" stroke-width="2"/>
+  <text x="745" y="245" font-family="Arial" font-size="12" text-anchor="middle">Cursor #3</text>
+  
+  <rect x="790" y="220" width="70" height="40" rx="5" ry="5" fill="#fff3e0" stroke="#ef6c00" stroke-width="2"/>
+  <text x="825" y="245" font-family="Arial" font-size="12" text-anchor="middle">Windsurf</text>
+  
+  <rect x="870" y="170" width="70" height="90" rx="5" ry="5" fill="#fff3e0" stroke="#ef6c00" stroke-width="2"/>
+  <text x="905" y="215" font-family="Arial" font-size="12" text-anchor="middle">その他</text>
+  <text x="905" y="235" font-family="Arial" font-size="12" text-anchor="middle">AIツール</text>
+  
+  <rect x="690" y="310" width="270" height="400" rx="10" ry="10" fill="#ffe0b2" stroke="#ef6c00" stroke-width="2"/>
+  <text x="825" y="330" font-family="Arial" font-size="16" text-anchor="middle" font-weight="bold">コンテナWorkspace環境</text>
+  
+  <rect x="710" y="350" width="230" height="80" rx="5" ry="5" fill="#fff3e0" stroke="#ef6c00" stroke-width="2"/>
+  <text x="825" y="370" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">Docker-in-Docker構造</text>
+  <text x="825" y="390" font-family="Arial" font-size="12" text-anchor="middle">独立コンテナ空間</text>
+  <text x="825" y="410" font-family="Arial" font-size="12" text-anchor="middle">インスタンス別環境</text>
+  
+  <rect x="710" y="450" width="230" height="80" rx="5" ry="5" fill="#fff3e0" stroke="#ef6c00" stroke-width="2"/>
+  <text x="825" y="470" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">ポート管理システム</text>
+  <text x="825" y="490" font-family="Arial" font-size="12" text-anchor="middle">プレフィックスによる分離</text>
+  <text x="825" y="510" font-family="Arial" font-size="12" text-anchor="middle">衝突回避メカニズム</text>
+  
+  <rect x="710" y="550" width="230" height="80" rx="5" ry="5" fill="#fff3e0" stroke="#ef6c00" stroke-width="2"/>
+  <text x="825" y="570" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">オーケストレーション</text>
+  <text x="825" y="590" font-family="Arial" font-size="12" text-anchor="middle">自動インスタンス管理</text>
+  <text x="825" y="610" font-family="Arial" font-size="12" text-anchor="middle">プロジェクト間同期</text>
+  
+  <line x1="825" y1="290" x2="825" y2="350" stroke="#ef6c00" stroke-width="2" stroke-dasharray="5,5"/>
+  <text x="845" y="320" font-family="Arial" font-size="12" text-anchor="middle" font-style="italic">利用</text>
+  
+  <!-- コアデザインの違い部分 -->
+  <rect x="40" y="720" width="270" height="40" rx="5" ry="5" fill="#81c784" stroke="#558b2f" stroke-width="2"/>
+  <text x="175" y="745" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">標準ローカル環境</text>
+  
+  <rect x="365" y="720" width="270" height="40" rx="5" ry="5" fill="#7986cb" stroke="#3949ab" stroke-width="2"/>
+  <text x="500" y="745" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">コンテナ/クラウド統合環境</text>
+  
+  <rect x="690" y="720" width="270" height="40" rx="5" ry="5" fill="#ffb74d" stroke="#ef6c00" stroke-width="2"/>
+  <text x="825" y="745" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">コンテナ分離型マルチインスタンス</text>
+</svg>
