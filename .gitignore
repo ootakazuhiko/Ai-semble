@@ -1,0 +1,58 @@
+# Docker関連のテンプレートと設定
+project-docker-template.txt
+nested-docker-compose.txt
+multi-instance-compose.txt
+docker-compose.txt
+multi-instance-config.json
+extended-config.json
+config-file.json
+
+# スクリプトファイル
+orchestration-script.sh
+nested-docker-orchestrator.sh
+instance-manager-script.sh
+cron-schedule.sh
+
+# 一時的な設計図
+multi-instance-architecture.svg
+
+# Python関連
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 仮想環境
+venv/
+env/
+ENV/
+
+# IDE関連
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ログファイル
+*.log
+
+# 環境変数
+.env
+.env.local
+.env.*.local 
