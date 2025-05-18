@@ -390,4 +390,129 @@ def test_import_dataset_invalid_metadata(dataset_service, db_session):
                 import_path=archive_path,
                 created_by_id=user.id,
             )
-        assert "メタデータの読み込みに失敗しました" in str(exc_info.value) 
+        assert "メタデータの読み込みに失敗しました" in str(exc_info.value)
+
+
+def test_compare_versions(dataset_service, sample_dataset, db_session):
+    """バージョン比較のテスト"""
+    user = db_session.query(User).first()
+
+    # 2つのバージョンのデータファイルを作成
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f1:
+        f1.write('{"value": 42}\n{"value": 43}')
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f2:
+        f2.write('{"value": 42}\n{"value": 44}')  # 値を変更
+
+    try:
+        # バージョンを追加
+        version1 = dataset_service.add_version(
+            dataset_id=sample_dataset.id,
+            version="1.0.0",
+            file_path=f1.name,
+            created_by_id=user.id,
+            quality_metrics={"accuracy": 0.95},
+        )
+
+        # メタデータを更新
+        dataset_service.update_dataset(
+            dataset_id=sample_dataset.id,
+            updated_by_id=user.id,
+            tags=["updated"],
+        )
+
+        version2 = dataset_service.add_version(
+            dataset_id=sample_dataset.id,
+            version="1.0.1",
+            file_path=f2.name,
+            created_by_id=user.id,
+            quality_metrics={"accuracy": 0.98},
+        )
+
+        # バージョンを比較
+        diff = dataset_service.compare_versions(
+            dataset_id=sample_dataset.id,
+            version1="1.0.0",
+            version2="1.0.1",
+        )
+
+        assert diff["dataset_id"] == sample_dataset.id
+        assert diff["version1"] == "1.0.0"
+        assert diff["version2"] == "1.0.1"
+        assert "file_diff" in diff
+        assert "metadata_diff" in diff
+        assert "metrics_diff" in diff
+        assert "accuracy" in diff["metrics_diff"]
+        assert diff["metrics_diff"]["accuracy"]["from"] == 0.95
+        assert diff["metrics_diff"]["accuracy"]["to"] == 0.98
+
+    finally:
+        os.unlink(f1.name)
+        os.unlink(f2.name)
+
+
+def test_compare_nonexistent_versions(dataset_service, sample_dataset):
+    """存在しないバージョンの比較テスト"""
+    with pytest.raises(DatasetError) as exc_info:
+        dataset_service.compare_versions(
+            dataset_id=sample_dataset.id,
+            version1="nonexistent",
+            version2="1.0.0",
+        )
+    assert "指定されたバージョンが存在しません" in str(exc_info.value)
+
+
+def test_get_version_history(dataset_service, sample_dataset, db_session):
+    """バージョン履歴取得のテスト"""
+    user = db_session.query(User).first()
+
+    # 複数のバージョンを追加
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+        f.write('{"value": 42}')
+        try:
+            version1 = dataset_service.add_version(
+                dataset_id=sample_dataset.id,
+                version="1.0.0",
+                file_path=f.name,
+                created_by_id=user.id,
+                quality_metrics={"accuracy": 0.95},
+            )
+
+            # メタデータを更新
+            dataset_service.update_dataset(
+                dataset_id=sample_dataset.id,
+                updated_by_id=user.id,
+                tags=["updated"],
+            )
+
+            version2 = dataset_service.add_version(
+                dataset_id=sample_dataset.id,
+                version="1.0.1",
+                file_path=f.name,
+                created_by_id=user.id,
+                quality_metrics={"accuracy": 0.98},
+            )
+
+            # 履歴を取得
+            history = dataset_service.get_version_history(
+                dataset_id=sample_dataset.id,
+                include_metadata=True,
+                include_metrics=True,
+            )
+
+            assert len(history) == 2
+            assert history[0]["version"] == "1.0.0"
+            assert history[1]["version"] == "1.0.1"
+            assert "metadata" in history[0]
+            assert "quality_metrics" in history[0]
+            assert history[0]["quality_metrics"]["accuracy"] == 0.95
+            assert history[1]["quality_metrics"]["accuracy"] == 0.98
+
+        finally:
+            os.unlink(f.name)
+
+
+def test_get_version_history_nonexistent_dataset(dataset_service):
+    """存在しないデータセットの履歴取得テスト"""
+    with pytest.raises(DatasetError) as exc_info:
+        dataset_service.get_version_history(dataset_id=999)
+    assert "データセットID 999 は存在しません" in str(exc_info.value) 

@@ -11,8 +11,9 @@ import shutil
 import tarfile
 import tempfile
 from datetime import datetime
+from difflib import unified_diff
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Tuple
+from typing import Dict, List, Optional, Union, Tuple, Any
 
 from sqlalchemy.orm import Session
 
@@ -352,6 +353,154 @@ class DatasetService:
                             versions.append(version)
 
             return dataset, versions
+
+    def compare_versions(
+        self,
+        dataset_id: int,
+        version1: str,
+        version2: str,
+        include_metadata: bool = True,
+        include_metrics: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        2つのバージョン間の差分を比較
+
+        Args:
+            dataset_id: データセットID
+            version1: 比較元のバージョン
+            version2: 比較先のバージョン
+            include_metadata: メタデータの差分を含めるかどうか
+            include_metrics: 品質指標の差分を含めるかどうか
+
+        Returns:
+            差分情報を含む辞書
+
+        Raises:
+            DatasetError: データセットまたはバージョンが存在しない場合
+        """
+        dataset = self.get_dataset(dataset_id)
+        if not dataset:
+            raise DatasetError(f"データセットID {dataset_id} は存在しません")
+
+        # バージョンを取得
+        v1 = self.db.query(DatasetVersion).filter(
+            DatasetVersion.dataset_id == dataset_id,
+            DatasetVersion.version == version1,
+        ).first()
+        v2 = self.db.query(DatasetVersion).filter(
+            DatasetVersion.dataset_id == dataset_id,
+            DatasetVersion.version == version2,
+        ).first()
+
+        if not v1 or not v2:
+            raise DatasetError("指定されたバージョンが存在しません")
+
+        # 差分情報を格納する辞書
+        diff_info = {
+            "dataset_id": dataset_id,
+            "version1": version1,
+            "version2": version2,
+            "file_diff": None,
+            "metadata_diff": None,
+            "metrics_diff": None,
+        }
+
+        # ファイルの差分を比較
+        if v1.storage_path and v2.storage_path:
+            try:
+                with open(v1.storage_path, "r", encoding="utf-8") as f1, \
+                     open(v2.storage_path, "r", encoding="utf-8") as f2:
+                    file1_lines = f1.readlines()
+                    file2_lines = f2.readlines()
+                    diff = list(unified_diff(
+                        file1_lines,
+                        file2_lines,
+                        fromfile=f"version {version1}",
+                        tofile=f"version {version2}",
+                        lineterm="",
+                    ))
+                    if diff:
+                        diff_info["file_diff"] = "".join(diff)
+            except Exception as e:
+                diff_info["file_diff"] = f"ファイルの差分比較中にエラーが発生しました: {e}"
+
+        # メタデータの差分を比較
+        if include_metadata:
+            metadata_diff = {}
+            for key in ["schema", "statistics", "tags", "custom_fields"]:
+                v1_value = getattr(dataset.metadata, key)
+                v2_value = getattr(dataset.metadata, key)
+                if v1_value != v2_value:
+                    metadata_diff[key] = {
+                        "from": v1_value,
+                        "to": v2_value,
+                    }
+            if metadata_diff:
+                diff_info["metadata_diff"] = metadata_diff
+
+        # 品質指標の差分を比較
+        if include_metrics and v1.quality_metrics and v2.quality_metrics:
+            metrics_diff = {}
+            for key in set(v1.quality_metrics.keys()) | set(v2.quality_metrics.keys()):
+                v1_value = v1.quality_metrics.get(key)
+                v2_value = v2.quality_metrics.get(key)
+                if v1_value != v2_value:
+                    metrics_diff[key] = {
+                        "from": v1_value,
+                        "to": v2_value,
+                    }
+            if metrics_diff:
+                diff_info["metrics_diff"] = metrics_diff
+
+        return diff_info
+
+    def get_version_history(
+        self,
+        dataset_id: int,
+        include_metadata: bool = False,
+        include_metrics: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """
+        データセットのバージョン履歴を取得
+
+        Args:
+            dataset_id: データセットID
+            include_metadata: メタデータを含めるかどうか
+            include_metrics: 品質指標を含めるかどうか
+
+        Returns:
+            バージョン履歴のリスト
+
+        Raises:
+            DatasetError: データセットが存在しない場合
+        """
+        dataset = self.get_dataset(dataset_id)
+        if not dataset:
+            raise DatasetError(f"データセットID {dataset_id} は存在しません")
+
+        history = []
+        for version in sorted(dataset.versions, key=lambda v: v.created_at):
+            version_info = {
+                "version": version.version,
+                "created_at": version.created_at.isoformat(),
+                "created_by": version.created_by.username,
+                "file_hash": version.file_hash,
+            }
+
+            if include_metadata:
+                version_info["metadata"] = {
+                    "schema": dataset.metadata.schema,
+                    "statistics": dataset.metadata.statistics,
+                    "tags": dataset.metadata.tags,
+                    "custom_fields": dataset.metadata.custom_fields,
+                }
+
+            if include_metrics and version.quality_metrics:
+                version_info["quality_metrics"] = version.quality_metrics
+
+            history.append(version_info)
+
+        return history
 
 
 class ValidationService:
