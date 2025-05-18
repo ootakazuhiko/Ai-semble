@@ -515,4 +515,163 @@ def test_get_version_history_nonexistent_dataset(dataset_service):
     """存在しないデータセットの履歴取得テスト"""
     with pytest.raises(DatasetError) as exc_info:
         dataset_service.get_version_history(dataset_id=999)
-    assert "データセットID 999 は存在しません" in str(exc_info.value) 
+    assert "データセットID 999 は存在しません" in str(exc_info.value)
+
+
+def test_calculate_statistics(dataset_service, sample_dataset, db_session):
+    """統計情報計算のテスト"""
+    user = db_session.query(User).first()
+
+    # テスト用のデータファイルを作成
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+        # 数値型とカテゴリカル型のカラムを含むデータを作成
+        f.write('{"numeric": 1, "category": "A"}\n')
+        f.write('{"numeric": 2, "category": "B"}\n')
+        f.write('{"numeric": 3, "category": "A"}\n')
+        f.write('{"numeric": 4, "category": "C"}\n')
+        f.write('{"numeric": 5, "category": "B"}\n')
+
+    try:
+        # バージョンを追加
+        version = dataset_service.add_version(
+            dataset_id=sample_dataset.id,
+            version="1.0.0",
+            file_path=f.name,
+            created_by_id=user.id,
+        )
+
+        # 統計情報を計算
+        stats = dataset_service.calculate_statistics(
+            dataset_id=sample_dataset.id,
+            version="1.0.0",
+        )
+
+        # 基本統計量の検証
+        assert stats["statistics"]["row_count"] == 5
+        assert stats["statistics"]["column_count"] == 2
+        assert "numeric" in stats["statistics"]["numeric_statistics"]
+        assert "category" in stats["statistics"]["categorical_statistics"]
+
+        # 数値型カラムの統計量の検証
+        numeric_stats = stats["statistics"]["numeric_statistics"]["numeric"]
+        assert numeric_stats["mean"] == 3.0
+        assert numeric_stats["min"] == 1.0
+        assert numeric_stats["max"] == 5.0
+
+        # カテゴリカルカラムの統計量の検証
+        categorical_stats = stats["statistics"]["categorical_statistics"]["category"]
+        assert categorical_stats["unique_count"] == 3
+        assert "A" in categorical_stats["most_common"]
+        assert "B" in categorical_stats["most_common"]
+
+        # 品質指標の検証
+        assert "completeness" in stats["quality_metrics"]
+        assert "uniqueness" in stats["quality_metrics"]
+        assert stats["quality_metrics"]["completeness"]["overall"] == 1.0
+
+    finally:
+        os.unlink(f.name)
+
+
+def test_calculate_statistics_with_missing_values(dataset_service, sample_dataset, db_session):
+    """欠損値を含むデータの統計情報計算のテスト"""
+    user = db_session.query(User).first()
+
+    # 欠損値を含むテストデータを作成
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+        f.write('{"numeric": 1, "category": "A"}\n')
+        f.write('{"numeric": null, "category": "B"}\n')
+        f.write('{"numeric": 3, "category": null}\n')
+        f.write('{"numeric": 4, "category": "C"}\n')
+        f.write('{"numeric": 5, "category": "B"}\n')
+
+    try:
+        # バージョンを追加
+        version = dataset_service.add_version(
+            dataset_id=sample_dataset.id,
+            version="1.0.0",
+            file_path=f.name,
+            created_by_id=user.id,
+        )
+
+        # 統計情報を計算
+        stats = dataset_service.calculate_statistics(
+            dataset_id=sample_dataset.id,
+            version="1.0.0",
+        )
+
+        # 欠損値の検証
+        assert stats["statistics"]["missing_values"]["numeric"] == 1
+        assert stats["statistics"]["missing_values"]["category"] == 1
+
+        # 品質指標の検証
+        assert stats["quality_metrics"]["completeness"]["overall"] < 1.0
+        assert "numeric" in stats["quality_metrics"]["completeness"]["by_column"]
+        assert "category" in stats["quality_metrics"]["completeness"]["by_column"]
+
+    finally:
+        os.unlink(f.name)
+
+
+def test_get_statistics(dataset_service, sample_dataset, db_session):
+    """統計情報取得のテスト"""
+    user = db_session.query(User).first()
+
+    # テストデータを作成
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+        f.write('{"numeric": 1, "category": "A"}\n')
+        f.write('{"numeric": 2, "category": "B"}\n')
+
+    try:
+        # バージョンを追加
+        version = dataset_service.add_version(
+            dataset_id=sample_dataset.id,
+            version="1.0.0",
+            file_path=f.name,
+            created_by_id=user.id,
+        )
+
+        # 初回の統計情報取得（計算が実行される）
+        stats1 = dataset_service.get_statistics(
+            dataset_id=sample_dataset.id,
+            version="1.0.0",
+        )
+
+        # 2回目の統計情報取得（キャッシュから取得）
+        stats2 = dataset_service.get_statistics(
+            dataset_id=sample_dataset.id,
+            version="1.0.0",
+        )
+
+        # 結果が一致することを確認
+        assert stats1 == stats2
+
+        # 再計算を強制
+        stats3 = dataset_service.get_statistics(
+            dataset_id=sample_dataset.id,
+            version="1.0.0",
+            recalculate=True,
+        )
+
+        # 結果が一致することを確認
+        assert stats1 == stats3
+
+    finally:
+        os.unlink(f.name)
+
+
+def test_get_statistics_nonexistent_dataset(dataset_service):
+    """存在しないデータセットの統計情報取得テスト"""
+    with pytest.raises(DatasetError) as exc_info:
+        dataset_service.get_statistics(dataset_id=999)
+    assert "データセットID 999 は存在しません" in str(exc_info.value)
+
+
+def test_get_statistics_nonexistent_version(dataset_service, sample_dataset):
+    """存在しないバージョンの統計情報取得テスト"""
+    with pytest.raises(DatasetError) as exc_info:
+        dataset_service.get_statistics(
+            dataset_id=sample_dataset.id,
+            version="nonexistent",
+        )
+    assert "指定されたバージョンが存在しません" in str(exc_info.value) 

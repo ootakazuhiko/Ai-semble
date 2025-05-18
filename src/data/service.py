@@ -14,7 +14,8 @@ from datetime import datetime
 from difflib import unified_diff
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Tuple, Any
-
+import numpy as np
+import pandas as pd
 from sqlalchemy.orm import Session
 
 from .models import Dataset, DatasetStatus, DatasetVersion, Metadata, QualityMetrics
@@ -501,6 +502,158 @@ class DatasetService:
             history.append(version_info)
 
         return history
+
+    def calculate_statistics(
+        self,
+        dataset_id: int,
+        version: Optional[str] = None,
+        update_metadata: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        データセットの統計情報を計算
+
+        Args:
+            dataset_id: データセットID
+            version: バージョン（指定しない場合は最新バージョン）
+            update_metadata: メタデータを更新するかどうか
+
+        Returns:
+            計算された統計情報
+
+        Raises:
+            DatasetError: データセットまたはバージョンが存在しない場合
+        """
+        dataset = self.get_dataset(dataset_id)
+        if not dataset:
+            raise DatasetError(f"データセットID {dataset_id} は存在しません")
+
+        # バージョンを取得
+        if version:
+            dataset_version = self.db.query(DatasetVersion).filter(
+                DatasetVersion.dataset_id == dataset_id,
+                DatasetVersion.version == version,
+            ).first()
+        else:
+            dataset_version = self.db.query(DatasetVersion).filter(
+                DatasetVersion.dataset_id == dataset_id,
+            ).order_by(DatasetVersion.created_at.desc()).first()
+
+        if not dataset_version:
+            raise DatasetError("指定されたバージョンが存在しません")
+
+        # データファイルを読み込み
+        try:
+            df = pd.read_json(dataset_version.storage_path, lines=True)
+        except Exception as e:
+            raise DatasetError(f"データファイルの読み込みに失敗しました: {e}")
+
+        # 基本統計量を計算
+        statistics = {
+            "row_count": len(df),
+            "column_count": len(df.columns),
+            "missing_values": df.isnull().sum().to_dict(),
+            "data_types": df.dtypes.astype(str).to_dict(),
+        }
+
+        # 数値型カラムの統計量
+        numeric_stats = {}
+        for col in df.select_dtypes(include=[np.number]).columns:
+            numeric_stats[col] = {
+                "mean": float(df[col].mean()),
+                "std": float(df[col].std()),
+                "min": float(df[col].min()),
+                "max": float(df[col].max()),
+                "median": float(df[col].median()),
+                "q1": float(df[col].quantile(0.25)),
+                "q3": float(df[col].quantile(0.75)),
+            }
+        if numeric_stats:
+            statistics["numeric_statistics"] = numeric_stats
+
+        # カテゴリカルカラムの統計量
+        categorical_stats = {}
+        for col in df.select_dtypes(include=["object", "category"]).columns:
+            value_counts = df[col].value_counts()
+            categorical_stats[col] = {
+                "unique_count": int(value_counts.nunique()),
+                "most_common": value_counts.head(5).to_dict(),
+                "missing_ratio": float(df[col].isnull().mean()),
+            }
+        if categorical_stats:
+            statistics["categorical_statistics"] = categorical_stats
+
+        # データ品質指標
+        quality_metrics = {
+            "completeness": {
+                "overall": float(1 - df.isnull().mean().mean()),
+                "by_column": (1 - df.isnull().mean()).to_dict(),
+            },
+            "uniqueness": {
+                "overall": float(len(df.drop_duplicates()) / len(df)),
+                "by_column": (df.nunique() / len(df)).to_dict(),
+            },
+        }
+
+        # メタデータを更新
+        if update_metadata and dataset.metadata:
+            dataset.metadata.statistics = statistics
+            self.db.commit()
+
+        # 品質指標を更新
+        dataset_version.quality_metrics = quality_metrics
+        self.db.commit()
+
+        return {
+            "statistics": statistics,
+            "quality_metrics": quality_metrics,
+        }
+
+    def get_statistics(
+        self,
+        dataset_id: int,
+        version: Optional[str] = None,
+        recalculate: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        データセットの統計情報を取得
+
+        Args:
+            dataset_id: データセットID
+            version: バージョン（指定しない場合は最新バージョン）
+            recalculate: 統計情報を再計算するかどうか
+
+        Returns:
+            統計情報
+
+        Raises:
+            DatasetError: データセットまたはバージョンが存在しない場合
+        """
+        dataset = self.get_dataset(dataset_id)
+        if not dataset:
+            raise DatasetError(f"データセットID {dataset_id} は存在しません")
+
+        # バージョンを取得
+        if version:
+            dataset_version = self.db.query(DatasetVersion).filter(
+                DatasetVersion.dataset_id == dataset_id,
+                DatasetVersion.version == version,
+            ).first()
+        else:
+            dataset_version = self.db.query(DatasetVersion).filter(
+                DatasetVersion.dataset_id == dataset_id,
+            ).order_by(DatasetVersion.created_at.desc()).first()
+
+        if not dataset_version:
+            raise DatasetError("指定されたバージョンが存在しません")
+
+        # 統計情報を再計算するか、既存の情報を返す
+        if recalculate or not dataset.metadata.statistics:
+            return self.calculate_statistics(dataset_id, version, update_metadata=True)
+        else:
+            return {
+                "statistics": dataset.metadata.statistics,
+                "quality_metrics": dataset_version.quality_metrics,
+            }
 
 
 class ValidationService:
