@@ -1,0 +1,25 @@
+name: Security Test CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python (3.9)
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install dependencies (pip)
+        run: pip install -r requirements.txt
+      - name: Run Security Tests with Coverage
+        run: pytest --cov=src --cov-report=xml --cov-report=term tests/security
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.xml 
