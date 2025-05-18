@@ -1,0 +1,26 @@
+# セキュリティ関連
+cryptography>=42.0.0
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.9
+boto3>=1.34.0  # AWS KMS用
+
+# データベース
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+psycopg2-binary>=2.9.9
+
+# ロギング
+python-json-logger>=2.0.7
+elasticsearch>=8.11.0  # ELK Stack用
+
+# テスト
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.23.0
+
+# 開発ツール
+black>=23.12.0
+isort>=5.13.0
+flake8>=7.0.0
+mypy>=1.8.0 
