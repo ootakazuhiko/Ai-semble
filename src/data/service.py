@@ -1078,6 +1078,280 @@ class DatasetService:
                 "quality_metrics": dataset_version.quality_metrics,
             }
 
+    def search_datasets(
+        self,
+        user_id: int,
+        query: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        status: Optional[DatasetStatus] = None,
+        created_after: Optional[datetime] = None,
+        created_before: Optional[datetime] = None,
+        metadata_filters: Optional[Dict[str, Any]] = None,
+        sort_by: Optional[str] = None,
+        sort_order: str = "desc",
+        page: int = 1,
+        per_page: int = 20,
+    ) -> Tuple[List[Dataset], int]:
+        """
+        データセットを検索
+
+        Args:
+            user_id: ユーザーID
+            query: 検索クエリ（名前と説明を検索）
+            tags: タグでフィルタリング
+            status: ステータスでフィルタリング
+            created_after: 作成日時（以降）
+            created_before: 作成日時（以前）
+            metadata_filters: メタデータフィールドによるフィルタリング
+                {
+                    "field_name": {
+                        "operator": "eq|gt|lt|contains|in",
+                        "value": value
+                    }
+                }
+            sort_by: ソート対象フィールド
+            sort_order: ソート順序（"asc" or "desc"）
+            page: ページ番号
+            per_page: 1ページあたりの件数
+
+        Returns:
+            (検索結果のデータセットリスト, 総件数)
+
+        Raises:
+            AccessControlError: ユーザーが存在しない場合
+            DatasetError: 無効な検索パラメータが指定された場合
+        """
+        # アクセス可能なデータセットを取得
+        accessible_datasets = self.access_control.get_user_accessible_datasets(user_id)
+        if not accessible_datasets:
+            return [], 0
+
+        # 検索条件を構築
+        dataset_ids = [d.id for d in accessible_datasets]
+        query = self.db.query(Dataset).filter(Dataset.id.in_(dataset_ids))
+
+        # テキスト検索
+        if query:
+            search_query = f"%{query}%"
+            query = query.filter(
+                (Dataset.name.ilike(search_query)) |
+                (Dataset.description.ilike(search_query))
+            )
+
+        # タグでフィルタリング
+        if tags:
+            for tag in tags:
+                query = query.filter(Dataset.metadata.has(tags=tag))
+
+        # ステータスでフィルタリング
+        if status:
+            query = query.filter(Dataset.status == status)
+
+        # 作成日時でフィルタリング
+        if created_after:
+            query = query.filter(Dataset.created_at >= created_after)
+        if created_before:
+            query = query.filter(Dataset.created_at <= created_before)
+
+        # メタデータフィールドでフィルタリング
+        if metadata_filters:
+            for field_name, filter_info in metadata_filters.items():
+                operator = filter_info.get("operator", "eq")
+                value = filter_info.get("value")
+
+                if operator == "eq":
+                    query = query.filter(Dataset.metadata.has(
+                        custom_fields={field_name: value}
+                    ))
+                elif operator == "gt":
+                    query = query.filter(Dataset.metadata.has(
+                        custom_fields={field_name: {"$gt": value}}
+                    ))
+                elif operator == "lt":
+                    query = query.filter(Dataset.metadata.has(
+                        custom_fields={field_name: {"$lt": value}}
+                    ))
+                elif operator == "contains":
+                    query = query.filter(Dataset.metadata.has(
+                        custom_fields={field_name: {"$contains": value}}
+                    ))
+                elif operator == "in":
+                    query = query.filter(Dataset.metadata.has(
+                        custom_fields={field_name: {"$in": value}}
+                    ))
+                else:
+                    raise DatasetError(f"無効な演算子: {operator}")
+
+        # 総件数を取得
+        total_count = query.count()
+
+        # ソート
+        if sort_by:
+            if sort_by == "name":
+                sort_column = Dataset.name
+            elif sort_by == "created_at":
+                sort_column = Dataset.created_at
+            elif sort_by == "updated_at":
+                sort_column = Dataset.updated_at
+            elif sort_by == "status":
+                sort_column = Dataset.status
+            else:
+                raise DatasetError(f"無効なソートフィールド: {sort_by}")
+
+            if sort_order == "desc":
+                query = query.order_by(sort_column.desc())
+            else:
+                query = query.order_by(sort_column.asc())
+
+        # ページネーション
+        query = query.offset((page - 1) * per_page).limit(per_page)
+
+        return query.all(), total_count
+
+    def get_dataset_tags(
+        self,
+        user_id: int,
+        prefix: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """
+        データセットのタグ一覧を取得
+
+        Args:
+            user_id: ユーザーID
+            prefix: タグのプレフィックスでフィルタリング
+            limit: 取得する最大件数
+
+        Returns:
+            タグ情報のリスト
+            [
+                {
+                    "tag": "タグ名",
+                    "count": 使用回数,
+                    "datasets": [
+                        {
+                            "id": データセットID,
+                            "name": データセット名
+                        },
+                        ...
+                    ]
+                },
+                ...
+            ]
+
+        Raises:
+            AccessControlError: ユーザーが存在しない場合
+        """
+        # アクセス可能なデータセットを取得
+        accessible_datasets = self.access_control.get_user_accessible_datasets(user_id)
+        if not accessible_datasets:
+            return []
+
+        # タグ情報を集計
+        tag_info = {}
+        for dataset in accessible_datasets:
+            if not dataset.metadata or not dataset.metadata.tags:
+                continue
+
+            for tag in dataset.metadata.tags:
+                if prefix and not tag.startswith(prefix):
+                    continue
+
+                if tag not in tag_info:
+                    tag_info[tag] = {
+                        "tag": tag,
+                        "count": 0,
+                        "datasets": [],
+                    }
+
+                tag_info[tag]["count"] += 1
+                tag_info[tag]["datasets"].append({
+                    "id": dataset.id,
+                    "name": dataset.name,
+                })
+
+        # 使用回数でソートして制限
+        sorted_tags = sorted(
+            tag_info.values(),
+            key=lambda x: (-x["count"], x["tag"])
+        )[:limit]
+
+        return sorted_tags
+
+    def get_dataset_metadata_fields(
+        self,
+        user_id: int,
+        field_prefix: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """
+        データセットのメタデータフィールド一覧を取得
+
+        Args:
+            user_id: ユーザーID
+            field_prefix: フィールド名のプレフィックスでフィルタリング
+            limit: 取得する最大件数
+
+        Returns:
+            メタデータフィールド情報のリスト
+            [
+                {
+                    "field": "フィールド名",
+                    "count": 使用回数,
+                    "type": "データ型",
+                    "datasets": [
+                        {
+                            "id": データセットID,
+                            "name": データセット名,
+                            "value": フィールド値
+                        },
+                        ...
+                    ]
+                },
+                ...
+            ]
+
+        Raises:
+            AccessControlError: ユーザーが存在しない場合
+        """
+        # アクセス可能なデータセットを取得
+        accessible_datasets = self.access_control.get_user_accessible_datasets(user_id)
+        if not accessible_datasets:
+            return []
+
+        # フィールド情報を集計
+        field_info = {}
+        for dataset in accessible_datasets:
+            if not dataset.metadata or not dataset.metadata.custom_fields:
+                continue
+
+            for field_name, field_value in dataset.metadata.custom_fields.items():
+                if field_prefix and not field_name.startswith(field_prefix):
+                    continue
+
+                if field_name not in field_info:
+                    field_info[field_name] = {
+                        "field": field_name,
+                        "count": 0,
+                        "type": type(field_value).__name__,
+                        "datasets": [],
+                    }
+
+                field_info[field_name]["count"] += 1
+                field_info[field_name]["datasets"].append({
+                    "id": dataset.id,
+                    "name": dataset.name,
+                    "value": field_value,
+                })
+
+        # 使用回数でソートして制限
+        sorted_fields = sorted(
+            field_info.values(),
+            key=lambda x: (-x["count"], x["field"])
+        )[:limit]
+
+        return sorted_fields
+
 
 class ValidationService:
     """データ検証サービス"""

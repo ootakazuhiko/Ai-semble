@@ -707,4 +707,183 @@ def test_get_statistics_nonexistent_version(dataset_service, sample_dataset):
             dataset_id=sample_dataset.id,
             version="nonexistent",
         )
-    assert "指定されたバージョンが存在しません" in str(exc_info.value) 
+    assert "指定されたバージョンが存在しません" in str(exc_info.value)
+
+
+def test_search_datasets(
+    dataset_service,
+    access_control_service,
+    sample_users,
+    sample_group,
+    db_session,
+):
+    """データセット検索機能のテスト"""
+    # テスト用データセットを作成
+    datasets = []
+    for i in range(3):
+        dataset = dataset_service.create_dataset(
+            name=f"test_dataset{i}",
+            description=f"テスト用データセット{i}",
+            created_by_id=sample_users[0].id,
+            schema={"type": "object"},
+            tags=[f"tag{i}", "common_tag"],
+            initial_access_groups=[{
+                "group_id": sample_group.id,
+                "access_level": AccessLevel.READ,
+            }],
+        )
+        # メタデータを更新
+        dataset.metadata.custom_fields = {
+            "field1": i,
+            "field2": f"value{i}",
+            "common_field": "common_value",
+        }
+        datasets.append(dataset)
+    db_session.commit()
+
+    # テキスト検索
+    results, total = dataset_service.search_datasets(
+        user_id=sample_users[1].id,
+        query="test_dataset1",
+    )
+    assert total == 1
+    assert results[0].id == datasets[1].id
+
+    # タグでフィルタリング
+    results, total = dataset_service.search_datasets(
+        user_id=sample_users[1].id,
+        tags=["common_tag"],
+    )
+    assert total == 3
+    assert len(results) == 3
+
+    # メタデータフィールドでフィルタリング
+    results, total = dataset_service.search_datasets(
+        user_id=sample_users[1].id,
+        metadata_filters={
+            "field1": {"operator": "gt", "value": 1},
+        },
+    )
+    assert total == 1
+    assert results[0].id == datasets[2].id
+
+    # 複合条件
+    results, total = dataset_service.search_datasets(
+        user_id=sample_users[1].id,
+        tags=["tag1"],
+        metadata_filters={
+            "field2": {"operator": "eq", "value": "value1"},
+        },
+        sort_by="created_at",
+        sort_order="desc",
+    )
+    assert total == 1
+    assert results[0].id == datasets[1].id
+
+    # ページネーション
+    results, total = dataset_service.search_datasets(
+        user_id=sample_users[1].id,
+        page=1,
+        per_page=2,
+    )
+    assert total == 3
+    assert len(results) == 2
+
+
+def test_get_dataset_tags(
+    dataset_service,
+    access_control_service,
+    sample_users,
+    sample_group,
+    db_session,
+):
+    """データセットタグ一覧取得のテスト"""
+    # テスト用データセットを作成
+    for i in range(3):
+        dataset_service.create_dataset(
+            name=f"test_dataset{i}",
+            description=f"テスト用データセット{i}",
+            created_by_id=sample_users[0].id,
+            schema={"type": "object"},
+            tags=[f"tag{i}", "common_tag", f"category{i}"],
+            initial_access_groups=[{
+                "group_id": sample_group.id,
+                "access_level": AccessLevel.READ,
+            }],
+        )
+    db_session.commit()
+
+    # タグ一覧を取得
+    tags = dataset_service.get_dataset_tags(
+        user_id=sample_users[1].id,
+    )
+    assert len(tags) == 7  # 3 * 2 + 1 (common_tag)
+    assert any(t["tag"] == "common_tag" and t["count"] == 3 for t in tags)
+
+    # プレフィックスでフィルタリング
+    tags = dataset_service.get_dataset_tags(
+        user_id=sample_users[1].id,
+        prefix="category",
+    )
+    assert len(tags) == 3
+    assert all(t["tag"].startswith("category") for t in tags)
+
+    # 件数制限
+    tags = dataset_service.get_dataset_tags(
+        user_id=sample_users[1].id,
+        limit=2,
+    )
+    assert len(tags) == 2
+    assert tags[0]["count"] >= tags[1]["count"]
+
+
+def test_get_dataset_metadata_fields(
+    dataset_service,
+    access_control_service,
+    sample_users,
+    sample_group,
+    db_session,
+):
+    """データセットメタデータフィールド一覧取得のテスト"""
+    # テスト用データセットを作成
+    for i in range(3):
+        dataset = dataset_service.create_dataset(
+            name=f"test_dataset{i}",
+            description=f"テスト用データセット{i}",
+            created_by_id=sample_users[0].id,
+            schema={"type": "object"},
+            initial_access_groups=[{
+                "group_id": sample_group.id,
+                "access_level": AccessLevel.READ,
+            }],
+        )
+        # メタデータを更新
+        dataset.metadata.custom_fields = {
+            f"field{i}": i,
+            f"text{i}": f"value{i}",
+            "common_field": "common_value",
+        }
+    db_session.commit()
+
+    # フィールド一覧を取得
+    fields = dataset_service.get_dataset_metadata_fields(
+        user_id=sample_users[1].id,
+    )
+    assert len(fields) == 7  # 3 * 2 + 1 (common_field)
+    assert any(f["field"] == "common_field" and f["count"] == 3 for f in fields)
+
+    # プレフィックスでフィルタリング
+    fields = dataset_service.get_dataset_metadata_fields(
+        user_id=sample_users[1].id,
+        field_prefix="text",
+    )
+    assert len(fields) == 3
+    assert all(f["field"].startswith("text") for f in fields)
+
+    # 件数制限
+    fields = dataset_service.get_dataset_metadata_fields(
+        user_id=sample_users[1].id,
+        limit=2,
+    )
+    assert len(fields) == 2
+    assert fields[0]["count"] >= fields[1]["count"] 
