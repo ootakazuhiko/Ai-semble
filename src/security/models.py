@@ -178,4 +178,20 @@ class AuditLog(Base):
             user_agent=user_agent,
             details=details,
             error_message=error_message
-        ) 
+        )
+
+class SecuritySetting(Base):
+    """セキュリティ設定モデル"""
+    __tablename__ = 'security_settings'
+
+    id = Column(Integer, primary_key=True)
+    key = Column(String(100), unique=True, nullable=False)
+    value = Column(String(1000), nullable=False)
+    description = Column(String(300), nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by = Column(Integer, ForeignKey('users.id'), nullable=True)  # 最終更新者
+
+    updater = relationship('User', backref='updated_settings')
+
+    def __repr__(self):
+        return f"<SecuritySetting {self.key}={self.value}>" 
