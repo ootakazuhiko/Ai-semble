@@ -18,7 +18,17 @@ import numpy as np
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from .models import Dataset, DatasetStatus, DatasetVersion, Metadata, QualityMetrics
+from .models import (
+    AccessLevel,
+    Dataset,
+    DatasetAccess,
+    DatasetStatus,
+    DatasetVersion,
+    Metadata,
+    QualityMetrics,
+    UserGroup,
+    User,
+)
 
 
 class DatasetError(Exception):
@@ -29,6 +39,336 @@ class DatasetError(Exception):
 class ValidationError(Exception):
     """データ検証関連のエラーを表す例外クラス"""
     pass
+
+
+class AccessControlError(Exception):
+    """アクセス制御関連のエラーを表す例外クラス"""
+    pass
+
+
+class AccessControlService:
+    """アクセス制御サービス"""
+
+    def __init__(self, db_session: Session):
+        self.db = db_session
+
+    def create_user_group(
+        self,
+        name: str,
+        description: str,
+        created_by_id: int,
+        user_ids: Optional[List[int]] = None,
+    ) -> UserGroup:
+        """
+        ユーザーグループを作成
+
+        Args:
+            name: グループ名
+            description: 説明
+            created_by_id: 作成者ID
+            user_ids: グループに追加するユーザーIDのリスト
+
+        Returns:
+            作成されたユーザーグループ
+
+        Raises:
+            AccessControlError: グループ名が重複している場合
+        """
+        if self.db.query(UserGroup).filter(UserGroup.name == name).first():
+            raise AccessControlError(f"グループ名 '{name}' は既に使用されています")
+
+        group = UserGroup(
+            name=name,
+            description=description,
+            created_by_id=created_by_id,
+        )
+        self.db.add(group)
+        self.db.flush()
+
+        # ユーザーをグループに追加
+        if user_ids:
+            users = self.db.query(User).filter(User.id.in_(user_ids)).all()
+            group.users.extend(users)
+
+        self.db.commit()
+        return group
+
+    def add_users_to_group(
+        self,
+        group_id: int,
+        user_ids: List[int],
+        updated_by_id: int,
+    ) -> UserGroup:
+        """
+        ユーザーグループにユーザーを追加
+
+        Args:
+            group_id: グループID
+            user_ids: 追加するユーザーIDのリスト
+            updated_by_id: 更新者ID
+
+        Returns:
+            更新されたユーザーグループ
+
+        Raises:
+            AccessControlError: グループが存在しない場合
+        """
+        group = self.db.query(UserGroup).get(group_id)
+        if not group:
+            raise AccessControlError(f"グループID {group_id} は存在しません")
+
+        users = self.db.query(User).filter(User.id.in_(user_ids)).all()
+        group.users.extend(users)
+        group.updated_at = datetime.utcnow()
+        self.db.commit()
+
+        return group
+
+    def remove_users_from_group(
+        self,
+        group_id: int,
+        user_ids: List[int],
+        updated_by_id: int,
+    ) -> UserGroup:
+        """
+        ユーザーグループからユーザーを削除
+
+        Args:
+            group_id: グループID
+            user_ids: 削除するユーザーIDのリスト
+            updated_by_id: 更新者ID
+
+        Returns:
+            更新されたユーザーグループ
+
+        Raises:
+            AccessControlError: グループが存在しない場合
+        """
+        group = self.db.query(UserGroup).get(group_id)
+        if not group:
+            raise AccessControlError(f"グループID {group_id} は存在しません")
+
+        users = self.db.query(User).filter(User.id.in_(user_ids)).all()
+        for user in users:
+            if user in group.users:
+                group.users.remove(user)
+
+        group.updated_at = datetime.utcnow()
+        self.db.commit()
+
+        return group
+
+    def grant_dataset_access(
+        self,
+        dataset_id: int,
+        group_id: int,
+        access_level: AccessLevel,
+        granted_by_id: int,
+    ) -> DatasetAccess:
+        """
+        データセットへのアクセス権限を付与
+
+        Args:
+            dataset_id: データセットID
+            group_id: グループID
+            access_level: アクセス権限レベル
+            granted_by_id: 権限付与者ID
+
+        Returns:
+            作成されたアクセス権限
+
+        Raises:
+            AccessControlError: データセットまたはグループが存在しない場合
+        """
+        dataset = self.db.query(Dataset).get(dataset_id)
+        if not dataset:
+            raise AccessControlError(f"データセットID {dataset_id} は存在しません")
+
+        group = self.db.query(UserGroup).get(group_id)
+        if not group:
+            raise AccessControlError(f"グループID {group_id} は存在しません")
+
+        # 既存のアクセス権限を確認
+        existing_access = self.db.query(DatasetAccess).filter(
+            DatasetAccess.dataset_id == dataset_id,
+            DatasetAccess.group_id == group_id,
+        ).first()
+
+        if existing_access:
+            existing_access.access_level = access_level
+            existing_access.updated_at = datetime.utcnow()
+            self.db.commit()
+            return existing_access
+
+        # 新しいアクセス権限を作成
+        access = DatasetAccess(
+            dataset_id=dataset_id,
+            group_id=group_id,
+            access_level=access_level,
+            created_by_id=granted_by_id,
+        )
+        self.db.add(access)
+        self.db.commit()
+
+        return access
+
+    def revoke_dataset_access(
+        self,
+        dataset_id: int,
+        group_id: int,
+        revoked_by_id: int,
+    ) -> None:
+        """
+        データセットへのアクセス権限を削除
+
+        Args:
+            dataset_id: データセットID
+            group_id: グループID
+            revoked_by_id: 権限削除者ID
+
+        Raises:
+            AccessControlError: データセットまたはグループが存在しない場合
+        """
+        access = self.db.query(DatasetAccess).filter(
+            DatasetAccess.dataset_id == dataset_id,
+            DatasetAccess.group_id == group_id,
+        ).first()
+
+        if access:
+            self.db.delete(access)
+            self.db.commit()
+
+    def check_dataset_access(
+        self,
+        dataset_id: int,
+        user_id: int,
+        required_level: AccessLevel,
+    ) -> bool:
+        """
+        ユーザーのデータセットへのアクセス権限を確認
+
+        Args:
+            dataset_id: データセットID
+            user_id: ユーザーID
+            required_level: 必要なアクセス権限レベル
+
+        Returns:
+            アクセスが許可されている場合はTrue
+
+        Raises:
+            AccessControlError: データセットまたはユーザーが存在しない場合
+        """
+        user = self.db.query(User).get(user_id)
+        if not user:
+            raise AccessControlError(f"ユーザーID {user_id} は存在しません")
+
+        dataset = self.db.query(Dataset).get(dataset_id)
+        if not dataset:
+            raise AccessControlError(f"データセットID {dataset_id} は存在しません")
+
+        # データセットの作成者は常にアクセス可能
+        if dataset.created_by_id == user_id:
+            return True
+
+        # ユーザーのグループを取得
+        user_groups = user.groups
+        if not user_groups:
+            return False
+
+        # グループのアクセス権限を確認
+        access_levels = {
+            AccessLevel.READ: 1,
+            AccessLevel.WRITE: 2,
+            AccessLevel.ADMIN: 3,
+        }
+
+        required_level_value = access_levels[required_level]
+        for group in user_groups:
+            access = self.db.query(DatasetAccess).filter(
+                DatasetAccess.dataset_id == dataset_id,
+                DatasetAccess.group_id == group.id,
+            ).first()
+
+            if access and access_levels[access.access_level] >= required_level_value:
+                return True
+
+        return False
+
+    def get_dataset_access_list(
+        self,
+        dataset_id: int,
+    ) -> List[Dict[str, Any]]:
+        """
+        データセットのアクセス権限一覧を取得
+
+        Args:
+            dataset_id: データセットID
+
+        Returns:
+            アクセス権限のリスト
+
+        Raises:
+            AccessControlError: データセットが存在しない場合
+        """
+        dataset = self.db.query(Dataset).get(dataset_id)
+        if not dataset:
+            raise AccessControlError(f"データセットID {dataset_id} は存在しません")
+
+        access_list = []
+        for access in dataset.access_controls:
+            access_list.append({
+                "group": {
+                    "id": access.group.id,
+                    "name": access.group.name,
+                    "description": access.group.description,
+                },
+                "access_level": access.access_level.value,
+                "granted_at": access.created_at.isoformat(),
+                "granted_by": access.created_by.username,
+            })
+
+        return access_list
+
+    def get_user_accessible_datasets(
+        self,
+        user_id: int,
+        access_level: Optional[AccessLevel] = None,
+    ) -> List[Dataset]:
+        """
+        ユーザーがアクセス可能なデータセット一覧を取得
+
+        Args:
+            user_id: ユーザーID
+            access_level: 必要なアクセス権限レベル（指定しない場合は全てのレベル）
+
+        Returns:
+            アクセス可能なデータセットのリスト
+
+        Raises:
+            AccessControlError: ユーザーが存在しない場合
+        """
+        user = self.db.query(User).get(user_id)
+        if not user:
+            raise AccessControlError(f"ユーザーID {user_id} は存在しません")
+
+        # ユーザーが作成したデータセットを取得
+        query = self.db.query(Dataset).filter(Dataset.created_by_id == user_id)
+
+        # グループ経由のアクセス権限を持つデータセットを取得
+        if user.groups:
+            group_ids = [group.id for group in user.groups]
+            group_access_query = self.db.query(Dataset).join(DatasetAccess).filter(
+                DatasetAccess.group_id.in_(group_ids)
+            )
+
+            if access_level:
+                group_access_query = group_access_query.filter(
+                    DatasetAccess.access_level == access_level
+                )
+
+            query = query.union(group_access_query)
+
+        return query.all()
 
 
 class DatasetService:
@@ -45,6 +385,7 @@ class DatasetService:
         self.db = db_session
         self.storage_base_path = Path(storage_base_path)
         self.storage_base_path.mkdir(parents=True, exist_ok=True)
+        self.access_control = AccessControlService(db_session)
 
     def create_dataset(
         self,
@@ -53,6 +394,7 @@ class DatasetService:
         created_by_id: int,
         schema: Dict,
         tags: Optional[List[str]] = None,
+        initial_access_groups: Optional[List[Dict[str, Any]]] = None,
     ) -> Dataset:
         """
         新しいデータセットを作成
@@ -63,12 +405,15 @@ class DatasetService:
             created_by_id: 作成者ID
             schema: データスキーマ
             tags: タグリスト
+            initial_access_groups: 初期アクセス権限設定
+                [{"group_id": int, "access_level": AccessLevel}, ...]
 
         Returns:
             作成されたデータセット
 
         Raises:
             DatasetError: データセット名が重複している場合
+            AccessControlError: グループが存在しない場合
         """
         if self.db.query(Dataset).filter(Dataset.name == name).first():
             raise DatasetError(f"データセット名 '{name}' は既に使用されています")
@@ -92,8 +437,18 @@ class DatasetService:
             custom_fields={},
         )
         self.db.add(metadata)
-        self.db.commit()
 
+        # 初期アクセス権限を設定
+        if initial_access_groups:
+            for access_info in initial_access_groups:
+                self.access_control.grant_dataset_access(
+                    dataset_id=dataset.id,
+                    group_id=access_info["group_id"],
+                    access_level=access_info["access_level"],
+                    granted_by_id=created_by_id,
+                )
+
+        self.db.commit()
         return dataset
 
     def add_version(
@@ -153,22 +508,69 @@ class DatasetService:
 
         return version
 
-    def get_dataset(self, dataset_id: int) -> Optional[Dataset]:
-        """データセットを取得"""
+    def get_dataset(
+        self,
+        dataset_id: int,
+        user_id: int,
+        required_level: AccessLevel = AccessLevel.READ,
+    ) -> Optional[Dataset]:
+        """
+        データセットを取得（アクセス権限チェック付き）
+
+        Args:
+            dataset_id: データセットID
+            user_id: ユーザーID
+            required_level: 必要なアクセス権限レベル
+
+        Returns:
+            データセット（アクセス権限がない場合はNone）
+
+        Raises:
+            AccessControlError: データセットまたはユーザーが存在しない場合
+        """
+        if not self.access_control.check_dataset_access(dataset_id, user_id, required_level):
+            return None
+
         return self.db.query(Dataset).get(dataset_id)
 
     def list_datasets(
         self,
+        user_id: int,
         status: Optional[DatasetStatus] = None,
         tags: Optional[List[str]] = None,
+        access_level: Optional[AccessLevel] = None,
     ) -> List[Dataset]:
-        """データセット一覧を取得"""
-        query = self.db.query(Dataset)
+        """
+        データセット一覧を取得（アクセス権限チェック付き）
+
+        Args:
+            user_id: ユーザーID
+            status: ステータスでフィルタリング
+            tags: タグでフィルタリング
+            access_level: 必要なアクセス権限レベル
+
+        Returns:
+            アクセス可能なデータセットのリスト
+
+        Raises:
+            AccessControlError: ユーザーが存在しない場合
+        """
+        # アクセス可能なデータセットを取得
+        accessible_datasets = self.access_control.get_user_accessible_datasets(
+            user_id=user_id,
+            access_level=access_level,
+        )
+
+        # フィルタリング
         if status:
-            query = query.filter(Dataset.status == status)
+            accessible_datasets = [d for d in accessible_datasets if d.status == status]
         if tags:
-            query = query.join(Metadata).filter(Metadata.tags.contains(tags))
-        return query.all()
+            accessible_datasets = [
+                d for d in accessible_datasets
+                if all(tag in d.metadata.tags for tag in tags)
+            ]
+
+        return accessible_datasets
 
     def update_dataset(
         self,
@@ -178,8 +580,29 @@ class DatasetService:
         status: Optional[DatasetStatus] = None,
         tags: Optional[List[str]] = None,
     ) -> Dataset:
-        """データセットを更新"""
-        dataset = self.get_dataset(dataset_id)
+        """
+        データセットを更新（アクセス権限チェック付き）
+
+        Args:
+            dataset_id: データセットID
+            updated_by_id: 更新者ID
+            description: 新しい説明
+            status: 新しいステータス
+            tags: 新しいタグリスト
+
+        Returns:
+            更新されたデータセット
+
+        Raises:
+            DatasetError: データセットが存在しない場合
+            AccessControlError: アクセス権限がない場合
+        """
+        if not self.access_control.check_dataset_access(
+            dataset_id, updated_by_id, AccessLevel.WRITE
+        ):
+            raise AccessControlError("データセットの更新権限がありません")
+
+        dataset = self.get_dataset(dataset_id, updated_by_id)
         if not dataset:
             raise DatasetError(f"データセットID {dataset_id} は存在しません")
 

@@ -17,6 +17,7 @@ from sqlalchemy.orm import sessionmaker
 from src.data.models import Dataset, DatasetStatus, DatasetVersion, Metadata, QualityMetrics
 from src.data.service import DatasetError, DatasetService, ValidationError, ValidationService
 from src.security.models import Base, User
+from src.security.service import AccessControlService, AccessLevel
 
 
 @pytest.fixture
@@ -55,6 +56,38 @@ def dataset_service(db_session, storage_dir):
 def validation_service(db_session):
     """検証サービスのインスタンスを作成"""
     return ValidationService(db_session)
+
+
+@pytest.fixture
+def access_control_service(db_session):
+    """アクセス制御サービスのインスタンスを作成"""
+    return AccessControlService(db_session)
+
+
+@pytest.fixture
+def sample_users(db_session):
+    """テスト用のユーザーを作成"""
+    users = []
+    for i in range(3):
+        user = User(
+            username=f"testuser{i}",
+            email=f"test{i}@example.com",
+        )
+        db_session.add(user)
+        users.append(user)
+    db_session.commit()
+    return users
+
+
+@pytest.fixture
+def sample_group(access_control_service, sample_users, db_session):
+    """テスト用のユーザーグループを作成"""
+    return access_control_service.create_user_group(
+        name="test_group",
+        description="テスト用グループ",
+        created_by_id=sample_users[0].id,
+        user_ids=[sample_users[0].id, sample_users[1].id],
+    )
 
 
 @pytest.fixture
